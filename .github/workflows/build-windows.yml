@@ -3,8 +3,6 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
 
 jobs:
   build:
@@ -12,21 +10,35 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
+      - name: Find project file
+        shell: pwsh
+        run: |
+          $project = Get-ChildItem -Path . -Recurse -Filter "*.csproj" | Select-Object -First 1
+
+          if ($null -eq $project) {
+            throw "No .csproj file found."
+          }
+
+          echo "PROJECT_PATH=$($project.FullName)" >> $env:GITHUB_ENV
+          Write-Host "Found project: $($project.FullName)"
+
       - name: Restore dependencies
-        run: dotnet restore FileNest.csproj
+        shell: pwsh
+        run: dotnet restore "$env:PROJECT_PATH"
 
       - name: Publish Windows EXE
-        run: dotnet publish FileNest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+        shell: pwsh
+        run: dotnet publish "$env:PROJECT_PATH" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 
       - name: Upload EXE artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: FileNest-windows
           path: publish/
